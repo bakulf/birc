@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Baku IRC
+Comment=birc - A wrapper around weechat for bterm
+TryExec=birc
+Exec=birc
+Icon=/usr/share/pixmaps/birc/birc.png
+Type=Application
+Categories=GNOME;GTK;Utility;IRC;
+StartupNotify=true
+X-GNOME-Autostart-enabled=false
