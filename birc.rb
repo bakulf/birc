@@ -165,7 +165,7 @@ private
       return false
     end
 
-    socket.write "ping"
+    socket.write "show"
     puts "BIrc already running. Let's open it."
     return true
   end
@@ -183,7 +183,7 @@ private
         client = socket.accept
         line = client.recv 1024
         line = line.strip
-        if line == 'ping'
+        if line == 'show'
           @mutex.lock
           @showUI = true
           @mutex.unlock
