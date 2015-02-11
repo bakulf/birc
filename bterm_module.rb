@@ -5,7 +5,14 @@ require 'socket'
 
 def birc
   system 'birc -f &'
+  check_thread
+end
 
+def window_created(window)
+  @window = window
+end
+
+def check_thread
   if @thread.nil?
     @thread = Thread.new do
       while 1 do
@@ -50,8 +57,5 @@ def birc
   end
 end
 
-def window_created(window)
-  @window = window
-end
-
+check_thread
 @@bterm.register_hooks :window_created, method(:window_created)

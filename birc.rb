@@ -86,7 +86,7 @@ class BIrc
     end
 
     filename = ENV['HOME'] + '/.bterm.yml'
-    @settings = read_bterm_config filename if File.exist? filename
+    @settings, @matches = read_bterm_config filename if File.exist? filename
     @bterm_configuration.each do |c|
       next if @settings.nil? or @settings[c[:key]].nil?
 
@@ -107,6 +107,36 @@ class BIrc
         send(c[:func], terminal, value)
       else
         terminal.send(c[:func], value)
+      end
+    end
+
+    if @matches[:rules].is_a? Array
+      @matches[:rules].each do |m|
+        tag = terminal.match_add m['regexp']
+        terminal.match_set_cursor tag, Gdk::Cursor::HAND2
+      end
+    end
+
+    terminal.signal_connect("button-press-event") do |widget, event|
+      string = terminal.match_check(event.x / terminal.char_width, event.y / terminal.char_height)
+      if not string.nil? and not string.empty?
+        match = true
+        @matches[:event].split(' ').each do |p|
+          break if not match
+          p.strip!
+          if p.downcase == 'ctrl'
+            match = event.state.control_mask?
+          elsif p.downcase == 'shift'
+            match = event.state.shift_mask?
+          else
+            match = event.button == p.to_i
+          end
+        end
+
+        if match
+          string, tag = string
+          process_exec @matches[:rules][tag]['app'] + ' ' + string
+        end
       end
     end
 
@@ -211,8 +241,15 @@ private
 
   def read_bterm_config(configfile)
     config = YAML.load_file(configfile)
-    return nil if config == false or config.nil? or config['bterm'].nil?
-    return config['bterm']
+    return nil, nil if config == false or config.nil? or config['bterm'].nil?
+
+    matches = {}
+    if not config['matches'].nil?
+      matches[:rules] = config['matches']['rules'] if not config['matches']['rules'].nil?
+      matches[:event] = config['matches']['event'] if not config['matches']['event'].nil?
+    end
+
+    return config['bterm'], matches
   end
 
   def set_colors(terminal, what)
@@ -316,6 +353,13 @@ private
 
     Gtk.main_quit
     File.unlink @usocket_file if File.exists? @usocket_file
+  end
+
+  def process_exec(cmd)
+    job = fork do
+      exec cmd
+    end
+    Process.detach job
   end
 end
 
