@@ -48,6 +48,7 @@ class BIrc
     ]
     @window = Gtk::Window.new("BIrc - a wrapper for weechat");
 
+    @window.title = "Birc"
     @window.fullscreen if options[:fullscreen]
     @window.decorated = false if options[:fullscreen]
 
@@ -75,10 +76,6 @@ class BIrc
     terminal = Vte::Terminal.new
     terminal.signal_connect("child-exited") do |widget|
       destroy
-    end
-
-    terminal.signal_connect("window-title-changed") do |widget|
-      @window.title = widget.window_title
     end
 
     terminal.signal_connect("resize-window") do |widget, width, height|

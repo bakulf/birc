@@ -6,7 +6,8 @@ def weechat_init
   Weechat.hook_signal("irc_notify_join", "online_cb", "")
   Weechat.hook_signal("irc_notify_quit", "offline_cb", "")
   Weechat.hook_signal("irc_notify_away", "offline_cb", "")
-  Weechat.hook_signal("*,irc_in2_privmsg", "privmsg_cb", "")
+  Weechat.hook_signal("irc_pv", "pv_cb", "")
+  Weechat.hook_signal("weechat_highlight", "highlight_cb", "")
 
   return Weechat::WEECHAT_RC_OK
 end
@@ -41,15 +42,15 @@ def offline_cb(a, b, c)
   return Weechat::WEECHAT_RC_OK
 end
 
-def privmsg_cb(a, b, c)
-  server = b.split(',')[0]
-
+def pv_cb(a, b, c)
   c = c[1..-1] if c[0] == ':'
   who = c.split('!')[0]
-  channel = c.split('PRIVMSG')[1].strip.split(' ')[0]
+  write "#{who} is talking"
+  return Weechat::WEECHAT_RC_OK
+end
 
-  nicks = Weechat::config_string(Weechat::config_get("irc.server.#{server}.nicks")).split(',')
-  write "#{who} is talking" if nicks.include? channel
-
+def highlight_cb(a, b, c)
+  who = c.split("\t")[0]
+  write "#{who} is talking"
   return Weechat::WEECHAT_RC_OK
 end
