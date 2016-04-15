@@ -10,6 +10,7 @@ require 'socket'
 require "gtk2"
 require "vte.so"
 require "yaml"
+require "shellwords"
 
 class BIrc
   def run(options)
@@ -132,7 +133,7 @@ class BIrc
 
         if match
           string, tag = string
-          process_exec @matches[:rules][tag]['app'] + ' ' + string
+          process_exec @matches[:rules][tag]['app'] + ' ' + Shellwords.escape(string)
         end
       end
     end

@@ -26,7 +26,7 @@ def write(what)
     return
   end
 
-  socket.write "#{what}"
+  socket.write "notify #{what}"
   socket.close
 end
 
