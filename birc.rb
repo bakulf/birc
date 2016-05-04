@@ -36,7 +36,8 @@ class BIrc
       { :key => 'color_highlight', :func => 'set_color_highlight', :type => :color },
       { :key => 'color_highlight_foreground', :func => 'set_color_highlight_foreground', :type => :color },
       { :key => 'colors', :internal => true, :func => 'set_colors', :type => :string },
-      { :key => 'cursor_blink_mode', :internal => true, :func => 'set_cursor_blink_mode', :type => :blinkmode },
+      { :key => 'cursor_shape', :internal => true, :func => 'set_cursor_shape', :type => :string },
+      { :key => 'cursor_blink_mode', :internal => true, :func => 'set_cursor_blink_mode', :type => :string },
       { :key => 'scrollback_lines', :func => 'set_scrollback_lines', :type => :integer },
       { :key => 'font', :func => 'set_font', :type => :font },
       { :key => 'backspace_binding', :func => 'set_backspace_binding', :internal => true, :type => :string },
@@ -256,6 +257,26 @@ private
 
     terminal.set_colors(@settings['color_foreground'],
                         @settings['color_background'], colors);
+  end
+
+  def set_cursor_shape(terminal, what)
+    if what == 'underline'
+      terminal.set_cursor_shape Vte::CursorShape::UNDERLINE
+    elsif what == 'block'
+      terminal.set_cursor_shape Vte::CursorShape::BLOCK
+    elsif what == 'I-beam'
+      terminal.set_cursor_shape Vte::CursorShape::IBEAM
+    end
+  end
+
+  def set_cursor_blink_mode(terminal, what)
+    if what == 'system'
+      terminal.set_cursor_blink_mode Vte::CursorBlinkMode::SYSTEM
+    elsif what == 'on'
+      terminal.set_cursor_blink_mode Vte::CursorBlinkMode::ON
+    elsif what == 'off'
+      terminal.set_cursor_blink_mode Vte::CursorBlinkMode::OFF
+    end
   end
 
   def set_backspace_binding(terminal, what)
