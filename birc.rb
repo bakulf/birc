@@ -7,8 +7,7 @@
 require 'rubygems'
 require 'optparse'
 require 'socket'
-require "gtk2"
-require "vte.so"
+require "vte3"
 require "yaml"
 require "shellwords"
 
@@ -26,26 +25,23 @@ class BIrc
 
     @bterm_configuration = [
       { :key => 'audible_bell', :func => 'set_audible_bell', :type => :boolean },
-      { :key => 'visible_bell', :func => 'set_visible_bell', :type => :boolean },
-      { :key => 'scroll_background', :func => 'set_scroll_background', :type => :boolean },
+      { :key => 'allow_bold', :func => 'set_allow_bold', :type => :boolean },
       { :key => 'scroll_on_output', :func => 'set_scroll_on_output', :type => :boolean },
-      { :key => 'scrollback_lines', :func => 'set_scrollback_lines', :type => :integer },
       { :key => 'scroll_on_keystroke', :func => 'set_scroll_on_keystroke', :type => :boolean },
-      { :key => 'color_dim', :func => 'set_color_dim', :type => :color },
       { :key => 'color_bold', :func => 'set_color_bold', :type => :color },
       { :key => 'color_foreground', :func => 'set_color_foreground', :type => :color },
       { :key => 'color_background', :func => 'set_color_background', :type => :color },
-      { :key => 'colors', :internal => true, :func => 'set_colors', :type => :string },
       { :key => 'color_cursor', :func => 'set_color_cursor', :type => :color },
+      { :key => 'color_cursor_foreground', :func => 'set_color_cursor_foreground', :type => :color },
       { :key => 'color_highlight', :func => 'set_color_highlight', :type => :color },
-      { :key => 'background_opacity', :func => 'set_background_opacity', :type => :float },
-      { :key => 'background_transparent', :func => 'set_background_transparent', :type => :boolean },
-      { :key => 'cursor_blinks', :func => 'set_cursor_blinks', :type => :boolean },
-      { :key => 'font', :func => 'set_font', :type => :string },
+      { :key => 'color_highlight_foreground', :func => 'set_color_highlight_foreground', :type => :color },
+      { :key => 'colors', :internal => true, :func => 'set_colors', :type => :string },
+      { :key => 'cursor_blink_mode', :internal => true, :func => 'set_cursor_blink_mode', :type => :blinkmode },
+      { :key => 'scrollback_lines', :func => 'set_scrollback_lines', :type => :integer },
+      { :key => 'font', :func => 'set_font', :type => :font },
       { :key => 'backspace_binding', :func => 'set_backspace_binding', :internal => true, :type => :string },
       { :key => 'delete_binding', :func => 'set_delete_binding', :internal => true, :type => :string },
-      { :key => 'word_chars', :func => 'set_word_chars', :type => :string },
-      { :key => 'mouse_autohide', :func => 'set_mouse_autohide', :type => :boolean }
+      { :key => 'mouse_autohide', :func => 'set_mouse_autohide', :type => :boolean },
     ]
     @window = Gtk::Window.new("BIrc - a wrapper for weechat");
 
@@ -55,8 +51,8 @@ class BIrc
 
     read_config
 
-    colormap = @window.screen.rgba_colormap
-    @window.set_colormap @window.screen.rgba_colormap if not colormap.nil?
+    visual = @window.screen.rgba_visual
+    @window.set_visual @window.screen.rgba_visual if not visual.nil?
 
     if not options[:fullscreen]
       @window.signal_connect("size-allocate") do |widget, a|
@@ -92,11 +88,13 @@ class BIrc
         if c[:type] == :boolean
           @settings[c[:key]] ? true : false
         elsif c[:type] == :color
-          @settings[c[:key]] = Gdk::Color.parse(@settings[c[:key]])
+          @settings[c[:key]] = Gdk::RGBA.parse(@settings[c[:key]])
         elsif c[:type] == :float
           @settings[c[:key]] = @settings[c[:key]].to_f
         elsif c[:type] == :integer
-           @settings[c[:key]] = @settings[c[:key]].to_i
+          @settings[c[:key]] = @settings[c[:key]].to_i
+        elsif c[:type] == :font
+          @settings[c[:key]] = Pango::FontDescription.new(@settings[c[:key]])
         else
            @settings[c[:key]]
         end
@@ -110,8 +108,8 @@ class BIrc
 
     if @matches[:rules].is_a? Array
       @matches[:rules].each do |m|
-        tag = terminal.match_add m['regexp']
-        terminal.match_set_cursor tag, Gdk::Cursor::HAND2
+        tag = terminal.match_add_gregex GLib::Regex.new(m['regexp']), 0
+        terminal.match_set_cursor_type tag, Gdk::CursorType::HAND2
       end
     end
 
@@ -139,7 +137,7 @@ class BIrc
     end
 
     options = { :argv => [ 'birc', '-e' ] }
-    terminal.fork_command options
+    terminal.spawn options
 
     terminal.show
     @window.add terminal
@@ -156,19 +154,19 @@ class BIrc
       returnValue
     end
 
-    ag = Gtk::AccelGroup.new
-    ag.connect(Gdk::Keyval.from_name('Escape'), nil, Gtk::ACCEL_VISIBLE) do
+    @ag = Gtk::AccelGroup.new
+    @ag.connect(Gdk::Keyval.from_name('Escape'), nil, Gtk::AccelFlags::VISIBLE) do
       time = Time.now.to_i
       hide if not @time.nil? and time - @time <= 1
       @time = time
     end
 
-    ag.connect(Gdk::Keyval.from_name('Escape'), Gdk::Window::SHIFT_MASK, Gtk::ACCEL_VISIBLE) do
+    @ag.connect(Gdk::Keyval.from_name('Escape'), Gdk::ModifierType::SHIFT_MASK, Gtk::AccelFlags::VISIBLE) do
       time = Time.now.to_i
       destroy if not @time.nil? and time - @time <= 1
       @time = time
     end
-    @window.add_accel_group(ag)
+    @window.add_accel_group(@ag)
 
     icon = Gtk::StatusIcon.new
     icon.set_file("/usr/share/pixmaps/birc/birc.png")
@@ -253,7 +251,7 @@ private
   def set_colors(terminal, what)
     colors = []
     what.split(':').each do |c|
-      colors.push(Gdk::Color.parse(c))
+      colors.push(Gdk::RGBA.parse(c))
     end
 
     terminal.set_colors(@settings['color_foreground'],
@@ -262,29 +260,29 @@ private
 
   def set_backspace_binding(terminal, what)
     if what == 'ASCII_DELETE'
-      terminal.set_backspace_binding Vte::Terminal::EraseBinding::ASCII_DELETE
+      terminal.set_backspace_binding Vte::EraseBinding::ASCII_DELETE
     elsif what == 'ASCII_BACKSPACE'
-      terminal.set_backspace_binding Vte::Terminal::EraseBinding::ASCII_BACKSPACE
+      terminal.set_backspace_binding Vte::EraseBinding::ASCII_BACKSPACE
     elsif what == 'AUTO'
-      terminal.set_backspace_binding Vte::Terminal::EraseBinding::AUTO
+      terminal.set_backspace_binding Vte::EraseBinding::AUTO
     elsif what == 'DELETE_SEQUENCE'
-      terminal.set_backspace_binding Vte::Terminal::EraseBinding::DELETE_SEQUENCE
+      terminal.set_backspace_binding Vte::EraseBinding::DELETE_SEQUENCE
     elsif what == 'TTY'
-      terminal.set_backspace_binding Vte::Terminal::EraseBinding::TTY
+      terminal.set_backspace_binding Vte::EraseBinding::TTY
     end
   end
 
   def set_delete_binding(terminal, what)
     if what == 'ASCII_DELETE'
-      terminal.set_delete_binding Vte::Terminal::EraseBinding::ASCII_DELETE
+      terminal.set_delete_binding Vte::EraseBinding::ASCII_DELETE
     elsif what == 'ASCII_BACKSPACE'
-      terminal.set_delete_binding Vte::Terminal::EraseBinding::ASCII_BACKSPACE
+      terminal.set_delete_binding Vte::EraseBinding::ASCII_BACKSPACE
     elsif what == 'AUTO'
-      terminal.set_delete_binding Vte::Terminal::EraseBinding::AUTO
+      terminal.set_delete_binding Vte::EraseBinding::AUTO
     elsif what == 'DELETE_SEQUENCE'
-      terminal.set_delete_binding Vte::Terminal::EraseBinding::DELETE_SEQUENCE
+      terminal.set_delete_binding Vte::EraseBinding::DELETE_SEQUENCE
     elsif what == 'TTY'
-      terminal.set_delete_binding Vte::Terminal::EraseBinding::TTY
+      terminal.set_delete_binding Vte::EraseBinding::TTY
     end
   end
 
