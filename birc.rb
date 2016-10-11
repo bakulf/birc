@@ -116,7 +116,7 @@ class BIrc
 
     terminal.signal_connect("button-press-event") do |widget, event|
       string = terminal.match_check(event.x / terminal.char_width, event.y / terminal.char_height)
-      if not string.nil? and not string.empty?
+      if string.length == 2 and not string[0].nil? and not string[0].empty?
         match = true
         @matches[:event].split(' ').each do |p|
           break if not match
