@@ -45,6 +45,7 @@ class BIrc
       { :key => 'mouse_autohide', :func => 'set_mouse_autohide', :type => :boolean },
     ]
     @window = Gtk::Window.new("BIrc - a wrapper for weechat");
+    @window.icon = "/usr/share/pixmaps/birc/birc.png"
 
     @window.title = "Birc"
     @window.fullscreen if options[:fullscreen]
